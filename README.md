@@ -16,15 +16,22 @@ appointments, treatments, and billing — without writing SQL.
    **DB Browser for SQLite**. `data/build_db.py` regenerates an equivalent
    schema (patients, dentists, appointments, treatments, invoices) with
    synthetic data for demo purposes.
-2. **Query translation** — A **LangChain SQL Agent** (`app/main.py`) takes
-   a plain-English question, inspects the database schema, generates the
-   appropriate SQL, executes it against SQLite, and returns a natural-
-   language answer.
+2. **Query translation** — `app/main.py` reads the live database schema and
+   foreign-key relationships directly from SQLite, builds a prompt with that
+   schema plus pre-computed date ranges ("this week," "last month," etc.)
+   and real sample values for status/category columns, and asks a locally
+   running **Llama model (via Ollama)** to output *only* the SQL for the
+   question. That exact SQL is then executed in Python against the real
+   database — the model never has a chance to fabricate results. If the
+   generated SQL errors against the schema, the app feeds the real error
+   back to the model for one self-correction attempt before giving up.
 3. **Interface** — A lightweight **Flask** app serves a simple local web UI
-   (`templates/index.html`) that staff use like a desktop tool — type a
-   question, get an answer, no SQL knowledge required.
-4. **Deployment** — Packaged with **Docker** so the same environment could
-   be replicated on other machines in the office without manual setup.
+   (`templates/index.html`): a question box, a panel showing the generated
+   SQL, and a results table — no chat-style narration, just the query and
+   its real output.
+4. **Deployment** — Packaged with **Docker** (app + an Ollama container) so
+   the same environment could be replicated on other machines in the office
+   without manual setup.
 
 ## Running locally
 
@@ -35,11 +42,22 @@ ollama pull llama3.1
 ollama serve          # if not already running
 
 pip install -r requirements.txt
-python data/build_db.py        # generates data/clinic.db
+python data/build_db.py        # regenerates data/clinic.db (already included)
 python app/main.py
 ```
 
-Visit `http://localhost:5000`.
+Visit `http://localhost:5001`.
+
+(Port 5001 is used by default since macOS's AirPlay Receiver often occupies
+port 5000. Override with `PORT=5000 python app/main.py` if you'd rather free
+up 5000 instead — System Settings → General → AirDrop & Handoff → AirPlay
+Receiver.)
+
+Set `OLLAMA_MODEL` to use a different local model, e.g.:
+
+```bash
+OLLAMA_MODEL=llama3.2:latest python app/main.py
+```
 
 ## Running with Docker
 
@@ -50,13 +68,14 @@ docker compose up --build
 docker compose exec ollama ollama pull llama3.1   # first run only
 ```
 
-Override the model with `OLLAMA_MODEL=<name>` if you used a different one.
+Override the model with `OLLAMA_MODEL=<name>` in your environment or a
+`.env` file.
 
 ## Example questions
 
-- "How many root canals were completed last month?"
 - "Which patients have an unpaid balance over $500?"
 - "List appointments for Dr. Chen this week"
+- "How many root canals were completed last month?"
 - "What's our no-show rate this year?"
 
 ## Schema
@@ -69,4 +88,12 @@ Override the model with `OLLAMA_MODEL=<name>` if you used a different one.
 
 ## Stack
 
-Python · Flask · LangChain (SQL Agent) · Llama (via Ollama, local inference) · SQLite · Docker · MS Access (source data entry) · DB Browser for SQLite
+Python · Flask · Llama (via Ollama, local inference) · SQLite · Docker · MS Access (source data entry) · DB Browser for SQLite
+
+## Notes on reliability
+
+Small local models can still misinterpret ambiguous questions (e.g. an
+unnecessary JOIN silently excluding rows) even with schema and foreign-key
+context in the prompt. The app validates and retries on hard SQL errors,
+but logic-level mistakes are a known limitation of running fully local,
+smaller open-weight models rather than a larger hosted LLM.
