@@ -1,1 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clinic Records — Ask a Question</title>
+<style>
+  :root {
+    --ink: #1c2b2d;
+    --paper: #f6f4ef;
+    --line: #d8d3c4;
+    --accent: #2f6b5e;
+    --accent-dim: #e5efec;
+    --mono: "IBM Plex Mono", "Courier New", monospace;
+    --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    border-bottom: 1px solid var(--line);
+    padding: 18px 28px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  header h1 {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 0;
+  }
+  header span {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #6b7472;
+    letter-spacing: 0.03em;
+  }
+  main {
+    flex: 1;
+    max-width: 760px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+  .query-box {
+    display: flex;
+    gap: 8px;
+    border: 1px solid var(--line);
+    background: #fff;
+    padding: 6px;
+    border-radius: 3px;
+  }
+  .query-box input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-family: var(--sans);
+    font-size: 15px;
+    padding: 10px 12px;
+    background: transparent;
+    color: var(--ink);
+  }
+  .query-box button {
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 0 20px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .query-box button:disabled {
+    background: #a9b8b4;
+    cursor: default;
+  }
+  .hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #74807d;
+  }
+  .examples {
+    margin-top: 28px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .examples button {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid transparent;
+    padding: 6px 10px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .examples button:hover { border-color: var(--accent); }
 
+  .thread {
+    margin-top: 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .entry-q {
+    font-size: 14px;
+    color: #55605d;
+  }
+  .entry-q::before {
+    content: "Q  ";
+    font-family: var(--mono);
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .entry-a {
+    margin-top: 8px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    padding: 14px 16px;
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
+  .entry-a.error {
+    border-left-color: #a3402f;
+    color: #a3402f;
+    font-family: var(--mono);
+    font-size: 13px;
+    white-space: pre-wrap;
+  }
+  .sql-panel {
+    background: #1c2b2d;
+    color: #d8e6e1;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    padding: 10px 12px;
+    border-radius: 3px;
+    overflow-x: auto;
+    white-space: pre;
+    margin-bottom: 12px;
+  }
+  .sql-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: #74807d;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  table.results {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  table.results th, table.results td {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  table.results th {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6b7472;
+  }
+  .no-rows {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #74807d;
+  }
+  .loading {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #74807d;
+  }
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 14px 28px;
+    font-size: 11px;
+    color: #8a938f;
+    font-family: var(--mono);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Clinic Records</h1>
+  <span>LOCAL · SQLITE · NL→SQL</span>
+</header>
+
+<main>
+  <div class="query-box">
+    <input id="question" type="text" placeholder="Ask about patients, appointments, or billing…" autofocus>
+    <button id="askBtn">Ask</button>
+  </div>
+  <div class="hint">Runs against the local practice database. No data leaves this machine except the query itself, sent to generate SQL.</div>
+
+  <div class="examples">
+    <button class="ex">How many root canals were completed last month?</button>
+    <button class="ex">Which patients have an unpaid balance over $500?</button>
+    <button class="ex">List appointments for Dr. Chen this week</button>
+    <button class="ex">What's our no-show rate this year?</button>
+  </div>
+
+  <div class="thread" id="thread"></div>
+</main>
+
+<footer>Internal tool — front desk &amp; clinical staff use only</footer>
+
+<script>
+const input = document.getElementById('question');
+const askBtn = document.getElementById('askBtn');
+const thread = document.getElementById('thread');
+
+document.querySelectorAll('.ex').forEach(btn => {
+  btn.addEventListener('click', () => {
+    input.value = btn.textContent;
+    ask();
+  });
+});
+
+askBtn.addEventListener('click', ask);
+input.addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
+
+async function ask() {
+  const question = input.value.trim();
+  if (!question) return;
+
+  askBtn.disabled = true;
+  askBtn.textContent = '…';
+
+  const qDiv = document.createElement('div');
+  qDiv.className = 'entry-q';
+  qDiv.textContent = question;
+
+  const aDiv = document.createElement('div');
+  aDiv.className = 'entry-a loading';
+  aDiv.textContent = 'Generating SQL…';
+
+  thread.prepend(aDiv);
+  thread.prepend(qDiv);
+  input.value = '';
+
+  try {
+    const res = await fetch('/api/ask', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({question})
+    });
+    const data = await res.json();
+    aDiv.classList.remove('loading');
+
+    if (data.error) {
+      aDiv.classList.add('error');
+      aDiv.textContent = data.error;
+    } else {
+      aDiv.innerHTML = '';
+
+      const sqlLabel = document.createElement('div');
+      sqlLabel.className = 'sql-label';
+      sqlLabel.textContent = 'Generated SQL';
+      aDiv.appendChild(sqlLabel);
+
+      const sqlPanel = document.createElement('div');
+      sqlPanel.className = 'sql-panel';
+      sqlPanel.textContent = data.sql;
+      aDiv.appendChild(sqlPanel);
+
+      if (!data.rows || data.rows.length === 0) {
+        const noRows = document.createElement('div');
+        noRows.className = 'no-rows';
+        noRows.textContent = 'No rows returned.';
+        aDiv.appendChild(noRows);
+      } else {
+        const table = document.createElement('table');
+        table.className = 'results';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        data.columns.forEach(col => {
+          const th = document.createElement('th');
+          th.textContent = col;
+          headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        data.rows.forEach(row => {
+          const tr = document.createElement('tr');
+          row.forEach(val => {
+            const td = document.createElement('td');
+            td.textContent = val === null ? '—' : val;
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        aDiv.appendChild(table);
+      }
+    }
+  } catch (err) {
+    aDiv.classList.remove('loading');
+    aDiv.classList.add('error');
+    aDiv.textContent = 'Request failed: ' + err.message;
+  } finally {
+    askBtn.disabled = false;
+    askBtn.textContent = 'Ask';
+  }
+}
+</script>
+
+</body>
+</html>
