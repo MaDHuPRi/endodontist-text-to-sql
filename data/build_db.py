@@ -108,7 +108,7 @@ statuses = ["Completed","Completed","Completed","No-Show","Cancelled","Scheduled
 
 appointments = []
 appt_id = 1
-end_date = datetime(2026, 8, 15)          # "today" for this demo dataset
+end_date = datetime.combine(datetime.now().date(), datetime.min.time())  # "today" — always current
 start = end_date - timedelta(days=730)     # 2 years of history
 total_span_days = (end_date - start).days
 
