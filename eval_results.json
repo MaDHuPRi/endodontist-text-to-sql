@@ -1,0 +1,209 @@
+{
+  "model": "llama3.1",
+  "date": "2026-08-17",
+  "overall_accuracy": 76.5,
+  "total_pass": 13,
+  "total_cases": 17,
+  "category_breakdown": {
+    "simple_filter": {
+      "pass": 2,
+      "total": 3,
+      "pct": 66.7
+    },
+    "join": {
+      "pass": 2,
+      "total": 3,
+      "pct": 66.7
+    },
+    "date_filter": {
+      "pass": 3,
+      "total": 4,
+      "pct": 75.0
+    },
+    "aggregation": {
+      "pass": 3,
+      "total": 4,
+      "pct": 75.0
+    },
+    "text_match": {
+      "pass": 2,
+      "total": 2,
+      "pct": 100.0
+    },
+    "multi_condition": {
+      "pass": 1,
+      "total": 1,
+      "pct": 100.0
+    }
+  },
+  "results": [
+    {
+      "category": "simple_filter",
+      "question": "Which patients have an unpaid balance over $500?",
+      "ground_truth_sql": "SELECT DISTINCT p.full_name FROM patients p JOIN invoices i\n        ON p.patient_id = i.patient_id\n        WHERE i.amount_due > 500 AND i.amount_paid < i.amount_due;",
+      "ground_truth_row_count": 80,
+      "generated_sql": "SELECT p.patient_id, p.full_name FROM patients AS p INNER JOIN invoices AS i ON p.patient_id = i.patient_id WHERE i.amount_due > 500 AND i.payment_status = 'Unpaid';",
+      "generated_row_count": 58,
+      "used_retry": false,
+      "status": "fail"
+    },
+    {
+      "category": "simple_filter",
+      "question": "List all patients insured by Delta Dental.",
+      "ground_truth_sql": "SELECT full_name FROM patients WHERE insurance_provider = 'Delta Dental';",
+      "ground_truth_row_count": 17,
+      "generated_sql": "SELECT full_name FROM patients WHERE insurance_provider = 'Delta Dental';",
+      "generated_row_count": 17,
+      "used_retry": false,
+      "status": "pass"
+    },
+    {
+      "category": "simple_filter",
+      "question": "Which appointments have a status of No-Show?",
+      "ground_truth_sql": "SELECT appointment_id, patient_id, appointment_date FROM appointments\n        WHERE status = 'No-Show';",
+      "ground_truth_row_count": 195,
+      "generated_sql": "SELECT * FROM appointments WHERE status = 'No-Show';",
+      "generated_row_count": 195,
+      "used_retry": false,
+      "status": "pass"
+    },
+    {
+      "category": "join",
+      "question": "List all root canal treatments performed by Dr. Sarah Chen.",
+      "ground_truth_sql": "SELECT t.procedure_name, a.appointment_date FROM treatments t\n        JOIN appointments a ON t.appointment_id = a.appointment_id\n        JOIN dentists d ON a.dentist_id = d.dentist_id\n        WHERE d.full_name = 'Dr. Sarah Chen' AND t.procedure_name LIKE 'Root Canal%';",
+      "ground_truth_row_count": 66,
+      "generated_sql": "SELECT T1.appointment_date, T2.procedure_name \nFROM appointments AS T1\nINNER JOIN treatments AS T2 ON T1.appointment_id = T2.appointment_id\nWHERE T1.dentist_id = 1 AND T2.procedure_name LIKE 'Root Canal%';",
+      "generated_row_count": 66,
+      "used_retry": false,
+      "status": "pass"
+    },
+    {
+      "category": "join",
+      "question": "What is the total invoice amount due for each insurance provider?",
+      "ground_truth_sql": "SELECT p.insurance_provider, SUM(i.amount_due) AS total_due\n        FROM patients p JOIN invoices i ON p.patient_id = i.patient_id\n        GROUP BY p.insurance_provider;",
+      "ground_truth_row_count": 7,
+      "generated_sql": "SELECT SUM(i.amount_due) AS total_amount_due, p.insurance_provider FROM invoices i INNER JOIN patients p ON i.patient_id = p.patient_id GROUP BY p.insurance_provider;",
+      "generated_row_count": 7,
+      "used_retry": true,
+      "status": "pass"
+    },
+    {
+      "category": "join",
+      "question": "Which dentist has performed the most treatments?",
+      "ground_truth_sql": "SELECT d.full_name, COUNT(*) AS treatment_count\n        FROM treatments t JOIN appointments a ON t.appointment_id = a.appointment_id\n        JOIN dentists d ON a.dentist_id = d.dentist_id\n        GROUP BY d.full_name ORDER BY treatment_count DESC LIMIT 1;",
+      "ground_truth_row_count": 1,
+      "generated_sql": "SELECT T1.full_name FROM dentists AS T1 INNER JOIN appointments AS T2 ON T1.dentist_id = T2.dentist_id INNER JOIN treatments AS T3 ON T2.appointment_id = T3.appointment_id GROUP BY T1.dentist_id ORDER BY COUNT(T3.treatment_id) DESC LIMIT 1;",
+      "generated_row_count": 1,
+      "used_retry": false,
+      "status": "fail"
+    },
+    {
+      "category": "date_filter",
+      "question": "How many appointments were scheduled this week?",
+      "ground_truth_sql": "SELECT COUNT(*) FROM appointments\n         WHERE appointment_date BETWEEN '2026-08-17' AND '2026-08-23';",
+      "ground_truth_row_count": 1,
+      "generated_sql": "SELECT COUNT(appointment_id) FROM appointments WHERE appointment_date BETWEEN '2026-08-17' AND '2026-08-23';",
+      "generated_row_count": 1,
+      "used_retry": false,
+      "status": "pass"
+    },
+    {
+      "category": "date_filter",
+      "question": "How many appointments were scheduled last week?",
+      "ground_truth_sql": "SELECT COUNT(*) FROM appointments\n         WHERE appointment_date BETWEEN '2026-08-10' AND '2026-08-16';",
+      "ground_truth_row_count": 1,
+      "generated_sql": "SELECT COUNT(appointment_id) FROM appointments WHERE status = 'Scheduled' AND appointment_date BETWEEN '2026-08-10' AND '2026-08-16';",
+      "generated_row_count": 1,
+      "used_retry": false,
+      "status": "fail"
+    },
+    {
+      "category": "date_filter",
+      "question": "How many root canals were completed last month?",
+      "ground_truth_sql": "SELECT COUNT(*) FROM treatments t JOIN appointments a\n         ON t.appointment_id = a.appointment_id\n         WHERE a.appointment_date BETWEEN '2026-07-01' AND '2026-07-31'\n         AND t.procedure_name LIKE 'Root Canal%';",
+      "ground_truth_row_count": 1,
+      "generated_sql": "SELECT COUNT(*) FROM treatments AS T1 INNER JOIN appointments AS T2 ON T1.appointment_id = T2.appointment_id WHERE T2.appointment_date BETWEEN '2026-07-01' AND '2026-07-31' AND T1.procedure_name LIKE 'Root Canal%' AND T2.status = 'Completed';",
+      "generated_row_count": 1,
+      "used_retry": false,
+      "status": "pass"
+    },
+    {
+      "category": "date_filter",
+      "question": "List appointments for Dr. Sarah Chen this month.",
+      "ground_truth_sql": "SELECT a.appointment_date, a.appointment_type FROM appointments a\n         JOIN dentists d ON a.dentist_id = d.dentist_id\n         WHERE d.full_name = 'Dr. Sarah Chen'\n         AND a.appointment_date BETWEEN '2026-08-01' AND '2026-08-31';",
+      "ground_truth_row_count": 29,
+      "generated_sql": "SELECT * FROM appointments WHERE appointment_date BETWEEN '2026-08-01' AND '2026-08-31' AND dentist_id = 1;",
+      "generated_row_count": 29,
+      "used_retry": false,
+      "status": "pass"
+    },
+    {
+      "category": "aggregation",
+      "question": "What's our no-show rate this year?",
+      "ground_truth_sql": "SELECT CAST(SUM(CASE WHEN status = 'No-Show' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(*)\n         FROM appointments\n         WHERE appointment_date BETWEEN '2026-01-01' AND '2026-12-31';",
+      "ground_truth_row_count": 1,
+      "status": "error",
+      "error": "unrecognized token: \"'2026-12-31;\""
+    },
+    {
+      "category": "aggregation",
+      "question": "What is the average cost of a root canal treatment?",
+      "ground_truth_sql": "SELECT AVG(cost) FROM treatments WHERE procedure_name LIKE 'Root Canal%';",
+      "ground_truth_row_count": 1,
+      "generated_sql": "SELECT AVG(cost) FROM treatments WHERE procedure_name LIKE 'Root Canal%';",
+      "generated_row_count": 1,
+      "used_retry": false,
+      "status": "pass"
+    },
+    {
+      "category": "aggregation",
+      "question": "How many unique patients have been seen in total?",
+      "ground_truth_sql": "SELECT COUNT(DISTINCT patient_id) FROM appointments;",
+      "ground_truth_row_count": 1,
+      "generated_sql": "SELECT COUNT(DISTINCT patient_id) FROM appointments;",
+      "generated_row_count": 1,
+      "used_retry": false,
+      "status": "pass"
+    },
+    {
+      "category": "aggregation",
+      "question": "What is the total revenue collected (amount paid) across all invoices?",
+      "ground_truth_sql": "SELECT SUM(amount_paid) FROM invoices;",
+      "ground_truth_row_count": 1,
+      "generated_sql": "SELECT SUM(amount_paid) FROM invoices;",
+      "generated_row_count": 1,
+      "used_retry": false,
+      "status": "pass"
+    },
+    {
+      "category": "text_match",
+      "question": "Which patients were referred by a general dentist?",
+      "ground_truth_sql": "SELECT full_name FROM patients WHERE referred_by LIKE '%General Dentist%';",
+      "ground_truth_row_count": 97,
+      "generated_sql": "SELECT full_name FROM patients WHERE referred_by LIKE 'Dr. Kim (General Dentist)' OR referred_by LIKE 'Dr. Osei (General Dentist)' OR referred_by LIKE 'Dr. Rossi (General Dentist)';",
+      "generated_row_count": 97,
+      "used_retry": false,
+      "status": "pass"
+    },
+    {
+      "category": "text_match",
+      "question": "How many invoices are marked as Unpaid?",
+      "ground_truth_sql": "SELECT COUNT(*) FROM invoices WHERE payment_status = 'Unpaid';",
+      "ground_truth_row_count": 1,
+      "generated_sql": "SELECT COUNT(*) FROM invoices WHERE payment_status = 'Unpaid';",
+      "generated_row_count": 1,
+      "used_retry": false,
+      "status": "pass"
+    },
+    {
+      "category": "multi_condition",
+      "question": "Which completed appointments were for emergency pain visits with Dr. Michael Alvarez?",
+      "ground_truth_sql": "SELECT a.appointment_date FROM appointments a JOIN dentists d\n        ON a.dentist_id = d.dentist_id\n        WHERE d.full_name = 'Dr. Michael Alvarez' AND a.appointment_type = 'Emergency Pain Visit'\n        AND a.status = 'Completed';",
+      "ground_truth_row_count": 21,
+      "generated_sql": "SELECT * FROM appointments AS T1 INNER JOIN dentists AS T2 ON T1.dentist_id = T2.dentist_id WHERE T2.full_name = 'Dr. Michael Alvarez' AND T1.status = 'Completed' AND T1.appointment_type = 'Emergency Pain Visit';",
+      "generated_row_count": 21,
+      "used_retry": false,
+      "status": "pass"
+    }
+  ]
+}
