@@ -114,8 +114,30 @@ strftime('%Y', column) = 'YYYY' or the literal date directly.
 
 Rules for text values: match the exact casing and exact wording shown in the \
 sample values below — do not guess alternate spellings, casings, or shortened \
-versions of these values.
+versions of these values. EXCEPTION: if the question refers to a broad \
+category rather than one specific value (e.g. "root canals" when the sample \
+values include several variants like 'Root Canal Therapy - Molar', 'Root \
+Canal Therapy - Premolar', etc.), use LIKE with a wildcard to match the \
+whole family (e.g. LIKE 'Root Canal%'), not an exact match to a single \
+variant — matching only one variant will undercount.
 {sample_values}
+
+Word-sense caution: a status column (e.g. appointments.status) has a fixed \
+set of literal values shown above. A question can use similar-sounding \
+words in a different sense — e.g. "appointments scheduled this week" \
+usually means "appointments that occur/take place this week" (a date \
+filter), NOT "appointments whose status column equals 'Scheduled'" (which \
+would wrongly exclude completed/no-show appointments happening that week). \
+Only filter on a status value when the question is clearly asking about \
+that status specifically (e.g. "how many appointments are still marked \
+Scheduled").
+
+Column selection: choose columns that actually answer the question, not \
+just columns used in the WHERE/JOIN condition. If the question filters by a \
+specific dentist, patient, or category, do not select that same value back \
+out as if it were new information — prefer distinguishing details like \
+dates, names, or amounts that tell the person something they don't already \
+know from the question itself.
 
 Schema:
 {schema}
